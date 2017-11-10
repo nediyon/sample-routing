@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:hz="http://www.hazelcast.com/schema/spring"
+       xmlns:cache="http://www.springframework.org/schema/cache"
+       xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+           http://www.springframework.org/schema/context/spring-context.xsd
+           http://www.springframework.org/schema/mvc
+			http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd
+			http://www.springframework.org/schema/util 
+			http://www.springframework.org/schema/util/spring-util.xsd
+			http://www.hazelcast.com/schema/spring
+           http://www.hazelcast.com/schema/spring/hazelcast-spring.xsd
+           http://www.springframework.org/schema/cache
+              http://www.springframework.org/schema/cache/spring-cache.xsd">
+
+	<import resource="security-config.xml" />
+	<import resource="classpath:META-INF/applicationContext-int.xml"/>
+
+	<context:component-scan base-package="com.sample"/>
+	
+	<mvc:annotation-driven content-negotiation-manager="contentNegotiationManager">
+    <mvc:message-converters register-defaults="false">   <!-- defaults for spring mvc 4 are jaxb and jackson2 -->
+      <bean class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter" />
+      <bean class="org.springframework.http.converter.xml.MarshallingHttpMessageConverter">
+        <property name="marshaller" ref="xstreamMarshaller" />
+        <property name="unmarshaller" ref="xstreamMarshaller" />
+      </bean>
+    </mvc:message-converters>
+  </mvc:annotation-driven>
+
+
+  <bean id="xstreamMarshaller" class="org.springframework.oxm.xstream.XStreamMarshaller">
+    <property name="autodetectAnnotations" value="true" />
+    <property name="aliases">
+      <props>
+        <prop key="country">com.sample.integration.domain.Country</prop>
+        <prop key="currency">com.sample.integration.domain.Currency</prop>
+        <prop key="countries">com.sample.integration.domain.Countries</prop>
+      </props>
+    </property>
+  </bean>
+
+
+  <bean id="contentNegotiationManager" class="org.springframework.web.accept.ContentNegotiationManagerFactoryBean">
+    <property name="favorPathExtension" value="true" />
+    <property name="ignoreAcceptHeader" value="false" />
+    <property name="defaultContentType"  ref="jsonMediaType" />
+    <property name="mediaTypes" >
+      <value>
+        json=application/json
+        xml=application/xml
+      </value>
+    </property>
+  </bean>
+
+
+  <bean id="jsonMediaType" class="org.springframework.http.MediaType">
+    <constructor-arg value="application"/>
+    <constructor-arg value="json"/>
+  </bean>
+  
+  <cache:annotation-driven cache-manager="cacheManager" />
+  
+  <hz:hazelcast id="instance">
+  <hz:config>
+    <hz:group name="dev" password="password"/>
+    <hz:network port="5701" port-auto-increment="true">
+      <hz:join>
+        <hz:multicast enabled="true"/>
+      </hz:join>
+    </hz:network>
+    <hz:map name="countries"
+            backup-count="2"
+            max-size="0"
+            eviction-percentage="30"
+            read-backup-data="true"
+            eviction-policy="NONE"
+            merge-policy="com.hazelcast.map.merge.PassThroughMergePolicy"/>
+  </hz:config>
+</hz:hazelcast>
+
+<bean id="cacheManager" class="com.hazelcast.spring.cache.HazelcastCacheManager">
+        <constructor-arg ref="instance"/>
+    </bean>
+
+</beans>

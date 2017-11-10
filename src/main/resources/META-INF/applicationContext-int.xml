@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+		http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/integration 
+		http://www.springframework.org/schema/integration/spring-integration.xsd
+		http://www.springframework.org/schema/context 
+        http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/integration/http 
+		http://www.springframework.org/schema/integration/http/spring-integration-http.xsd"
+	xmlns:int="http://www.springframework.org/schema/integration"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:int-http="http://www.springframework.org/schema/integration/http">
+
+	<context:component-scan base-package="com.sample.integration"/>
+	
+	<bean id="externalCountryServiceResponseHandler" class="com.sample.integration.handler.ExternalCountryServiceResponseHandler"/>
+
+	<!-- Inbound/Outbound Channels -->
+	<int:channel id="countriesRequestChannel"/>
+    <int:channel id="countriesResponseChannel"/>
+        
+    <int:gateway 
+    	id="countriesService" 
+    	service-interface="com.sample.integration.service.ExternalCountryService">
+    	<int:method name="getCountryNamesAndCurriencies"
+    				request-channel="countriesRequestChannel"
+    				request-timeout="20000"
+    				reply-channel="countriesResponseChannel"
+    				reply-timeout="20000" />			
+    </int:gateway>    
+    
+    <int:chain input-channel="countriesRequestChannel" output-channel="countriesResponseChannel">
+        <int-http:outbound-gateway 
+        	url="https://restcountries.eu/rest/v2/all?fields=name;currencies" 
+            expected-response-type="java.lang.String"
+            http-method="GET" 
+            charset="UTF-8"/>        
+        <int:json-to-object-transformer type="com.sample.integration.domain.Country[]"/>
+        <int:service-activator ref="externalCountryServiceResponseHandler" />       
+    </int:chain> 
+</beans>
